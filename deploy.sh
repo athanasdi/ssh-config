@@ -8,6 +8,8 @@ SERVER_IP="${SERVER_IP:-192.168.1.11}"
 SSH_USER="${SSH_USER:-$(whoami)}"
 KEY_USER="${KEY_USER:-$(whoami)}"
 DOCKER_VERSION="${DOCKER_VERSION:-1.13.0}"
+SSH_DIR="${HOME}/.ssh"
+SSH_FILE="${SSH_DIR}/id_rsa"
 
 
 # Create user KEY_USER with no pass & sudo privileges on $SERVER_IP 
@@ -24,11 +26,11 @@ function preseed_server () {
 # Users on group sudo can now execute sudo commands without passwd. See sudo/sudoers 
 function configure_sudo () {
   echo "Configuring passwordless sudo..."
-  scp  "sudo/sudoers" "${SSH_USER}@${SERVER_IP}:/tmp/sudoers"
+  scp  "sudo/custom_sudoers" "${SSH_USER}@${SERVER_IP}:/tmp/custom_sudoers"
   ssh  -t "${SSH_USER}@${SERVER_IP}" bash -c "'
-        sudo chmod 440 /tmp/sudoers
-        sudo chown root:root /tmp/sudoers
-        sudo mv /tmp/sudoers /etc
+        sudo chmod 440 /tmp/custom_sudoers
+        sudo chown root:root /tmp/custom_sudoers
+        sudo mv /tmp/custom_sudoers /etc/sudoers.d/
           '"
   echo "done!"
 }
@@ -36,8 +38,6 @@ function configure_sudo () {
 # Generates ssh key if doesn't exists on the system
 function generate_ssh_key() {
   echo "Generating ssh keys on the localhost machine..."
-  SSH_DIR="${HOME}/.ssh"
-  SSH_FILE="${SSH_DIR}/id_rsa"
   echo "${SSH_FILE}"
   if [ -f "${SSH_FILE}" ] 
     then
@@ -77,7 +77,7 @@ function configure_secure_ssh () {
   echo "done!"
 }
 
-
+# Install Docker:$DOCKER_VERSION on the $SERVER_IP  
 function install_docker () {
   echo "Configuring Docker v${1}..."
   ssh -t "${SSH_USER}@${SERVER_IP}" bash -c "'
@@ -91,6 +91,7 @@ function install_docker () {
   echo "done!"
 }
 
+# Pull The required images listed in $DOCKER_PULL_IMAGES
 function docker_pull () {
   echo "Pulling Docker images..."
   for image in "${DOCKER_PULL_IMAGES[@]}"
@@ -100,7 +101,7 @@ function docker_pull () {
   echo "done!"
 }
 
-
+# Do all the stuff to provision the server, except preseed_server
 function provision_server () {
   configure_sudo
   echo "---"
