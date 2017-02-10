@@ -23,7 +23,7 @@ function preseed_server () {
       echo "done!"
 }
 
-# Users on group sudo can now execute sudo commands without passwd. See sudo/sudoers 
+# Users on group sudo can now execute sudo commands without passwd.  
 function configure_sudo () {
   echo "Configuring passwordless sudo..."
   scp  "sudo/custom_sudoers" "${SSH_USER}@${SERVER_IP}:/tmp/custom_sudoers"
@@ -62,19 +62,18 @@ function add_ssh_key() {
         chmod 640 /home/${KEY_USER}/.ssh/authorized_keys
         sudo chown ${KEY_USER}:${KEY_USER} -R /home/${KEY_USER}/.ssh
           '"
-  echo "done!"
+  echo "done! $SERVER_IP:/home/${KEY_USER}/.ssh/authorized_keys has been updated."
 }
 
 # Disable Password Login. EnableLogin only with ssh key.
+# Modifies /etc/ssh/sshd_config file with  'PasswordAuthentication no'
 function configure_secure_ssh () {
   echo "Configuring secure SSH..."
-  scp "ssh/sshd_config" "${SSH_USER}@${SERVER_IP}:/tmp/sshd_config"
   ssh -t "${SSH_USER}@${SERVER_IP}" bash -c "'
-        sudo chown root:root /tmp/sshd_config
-        sudo mv /tmp/sshd_config /etc/ssh
+        sudo sed -i.bak -r \"s/^.*PasswordAuthentication .*/PasswordAuthentication no/g\" /etc/ssh/sshd_config
         sudo systemctl restart ssh
           '"
-  echo "done!"
+  echo "done! $SERVER_IP: /etc/ssh/sshd_config has been updated."
 }
 
 # Install Docker:$DOCKER_VERSION on the $SERVER_IP  
