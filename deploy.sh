@@ -8,6 +8,8 @@ SERVER_IP="${SERVER_IP:-192.168.1.11}"
 SSH_USER="${SSH_USER:-$(whoami)}"
 KEY_USER="${KEY_USER:-$(whoami)}"
 DOCKER_VERSION="${DOCKER_VERSION:-1.13.0}"
+
+# SSH direcotry of the localhost machine
 SSH_DIR="${HOME}/.ssh"
 SSH_FILE="${SSH_DIR}/id_rsa"
 
@@ -20,7 +22,9 @@ function preseed_server () {
         sudo apt-get update && apt-get install -y -q sudo
         sudo adduser ${KEY_USER} sudo
           '"
-      echo "done!"
+  echo "done!"
+  # Add ssh keys of the ${KEY_USER}
+  add_ssh_key
 }
 
 # Users on group sudo can now execute sudo commands without passwd.  
@@ -35,7 +39,7 @@ function configure_sudo () {
   echo "done!"
 }
 
-# Generates ssh key if doesn't exists on the system
+# Generates ssh key if doesn't already exists on the system
 function generate_ssh_key() {
   echo "Generating ssh keys on the localhost machine..."
   echo "${SSH_FILE}"
@@ -53,16 +57,22 @@ function generate_ssh_key() {
 
 function add_ssh_key() {
   echo "Adding SSH key..."
-  cat  "$HOME/.ssh/id_rsa.pub" | ssh -t "${SSH_USER}@${SERVER_IP}" bash -c "'
-        mkdir /home/${KEY_USER}/.ssh
-        cat >> /home/${KEY_USER}/.ssh/authorized_keys
+  scp "$HOME/.ssh/id_rsa.pub" "${SSH_USER}@${SERVER_IP}:/tmp/id_rsa.pub"
+  
+  # Create .ssh/authorized_keys and copy the PubKey 
+  ssh -t -t "${SSH_USER}@${SERVER_IP}" bash -c "'
+        sudo mkdir /home/${KEY_USER}/.ssh
+        sudo chown ${KEY_USER}:${SSH_USER} -R /home/${KEY_USER}/.ssh/
+        sudo chmod 770 /home/${KEY_USER}/.ssh/
+        sudo cat /tmp/id_rsa.pub >> /home/${KEY_USER}/.ssh/authorized_keys
         '"
+  # Limit permissions of .ssh/ to ${KEY_USER}      
   ssh -t "${SSH_USER}@${SERVER_IP}" bash -c "'
-        chmod 700 /home/${KEY_USER}/.ssh
-        chmod 640 /home/${KEY_USER}/.ssh/authorized_keys
+        sudo chmod 700 /home/${KEY_USER}/.ssh
+        sudo chmod 640 /home/${KEY_USER}/.ssh/authorized_keys
         sudo chown ${KEY_USER}:${KEY_USER} -R /home/${KEY_USER}/.ssh
           '"
-  echo "done! $SERVER_IP:/home/${KEY_USER}/.ssh/authorized_keys has been updated."
+  echo "done!"
 }
 
 # Disable Password Login. EnableLogin only with ssh key.
@@ -73,7 +83,7 @@ function configure_secure_ssh () {
         sudo sed -i.bak -r \"s/^.*PasswordAuthentication .*/PasswordAuthentication no/g\" /etc/ssh/sshd_config
         sudo systemctl restart ssh
           '"
-  echo "done! $SERVER_IP: /etc/ssh/sshd_config has been updated."
+  echo "done!"
 }
 
 # Install Docker:$DOCKER_VERSION on the $SERVER_IP  
